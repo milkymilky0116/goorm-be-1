@@ -15,11 +15,11 @@ func TestHealthCheck(t *testing.T) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	listener := testutil.StartTestServer(t, ctx, &wg)
+	app := testutil.StartTestServer(t, ctx, &wg)
 	wg.Wait()
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/health_check", listener.Addr()), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/health_check", app.Listener.Addr()), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

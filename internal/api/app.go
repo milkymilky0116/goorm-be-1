@@ -9,16 +9,24 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 )
 
 type Application struct {
-	Addr string
-	DB   *pgxpool.Pool
+	Addr       string
+	DB         *pgxpool.Pool
+	Repository *repository.Queries
 }
 
 func Run(ctx context.Context, listener net.Listener, db *pgxpool.Pool) (*Application, error) {
 	var app Application
 	addr := fmt.Sprintf("http://%s", listener.Addr())
+	queries := repository.New(db)
+
+	app.Addr = addr
+	app.DB = db
+	app.Repository = queries
+
 	srv := &http.Server{
 		Handler: app.routes(),
 	}
@@ -33,5 +41,5 @@ func Run(ctx context.Context, listener net.Listener, db *pgxpool.Pool) (*Applica
 	if err := srv.Shutdown(ctxShutdown); err != nil {
 		return nil, err
 	}
-	return &Application{Addr: addr, DB: db}, nil
+	return &app, nil
 }

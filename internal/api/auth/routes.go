@@ -1,30 +1,56 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 
+	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthController struct{}
+type AuthController struct {
+	repo *repository.Queries
+}
 
-func (a *AuthController) SignupController(w http.ResponseWriter, r *http.Request) {
-	var result map[string]string
+func (app *AuthController) SignupController(w http.ResponseWriter, r *http.Request) {
+	var dto repository.CreateUserParams
 	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&result)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(result["password"]), bcrypt.DefaultCost)
+	err = json.Unmarshal(body, &dto)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	result["password"] = string(hashedPassword)
-	jsonBody, err := json.Marshal(result)
+	log.Println(dto)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	dto.Password = string(hashedPassword)
+	user, err := app.repo.CreateUser(context.Background(), repository.CreateUserParams{
+		Email:    dto.Email,
+		Password: dto.Password,
+		Role:     dto.Role,
+	})
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	jsonBody, err := json.Marshal(user)
+	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -33,6 +59,8 @@ func (a *AuthController) SignupController(w http.ResponseWriter, r *http.Request
 	w.Write(jsonBody)
 }
 
-func InitAuthController() *AuthController {
-	return &AuthController{}
+func InitAuthController(repo *repository.Queries) *AuthController {
+	return &AuthController{
+		repo: repo,
+	}
 }
