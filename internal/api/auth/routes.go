@@ -1,60 +1,61 @@
 package auth
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/milkymilky0116/goorm-be-1/internal/api/middleware"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	"github.com/milkymilky0116/goorm-be-1/internal/util"
-	"golang.org/x/crypto/bcrypt"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/go-playground/validator/v10"
 )
 
+var tracer = otel.Tracer("SignUp")
+
 type AuthController struct {
-	repo      *repository.Queries
-	validator *validator.Validate
+	authService *AuthService
+	validate    *validator.Validate
 }
 
 func (app *AuthController) SignupController(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "SignUp")
+	defer span.End()
+	requestID := util.GetRequestID(w, r)
+	spanID := span.SpanContext().SpanID().String()
+
+	span.SetAttributes(attribute.String(middleware.REQUEST_ID, *requestID))
+	util.LogInfo(span, *requestID, spanID, "Starting register user")
 	var dto CreateUserDTO
 	err := util.ReadBody(r, &dto)
 	if err != nil {
-		util.HandleError(w, err, http.StatusInternalServerError)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to read body")
 		return
 	}
-	err = app.validator.Struct(dto)
+	err = app.validate.Struct(dto)
 	if err != nil {
-		util.HandleValidatorError(w, err, http.StatusBadRequest)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to validate body")
+		return
+	}
+	user, err := app.authService.CreateUser(ctx, *requestID, dto)
+	if err != nil {
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to create user")
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
-	if err != nil {
-		util.HandleError(w, err, http.StatusInternalServerError)
-		return
-	}
-
-	dto.Password = string(hashedPassword)
-	user, err := app.repo.CreateUser(context.Background(), repository.CreateUserParams{
-		Email:    dto.Email,
-		Password: dto.Password,
-		Role:     repository.Role(dto.Role),
-	})
-	if err != nil {
-		util.HandleError(w, err, http.StatusInternalServerError)
-		return
-	}
 	err = util.WriteJson(w, user, http.StatusOK)
 	if err != nil {
-		util.HandleError(w, err, http.StatusInternalServerError)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to write json")
 		return
 	}
+	util.LogInfo(span, *requestID, spanID, "Finish registering user")
 }
 
 func InitAuthController(repo *repository.Queries, validate *validator.Validate) *AuthController {
+	authService := InitAuthService(repo)
 	return &AuthController{
-		repo:      repo,
-		validator: validate,
+		authService: authService,
+		validate:    validate,
 	}
 }

@@ -1,8 +1,12 @@
 package configuration
 
-import "github.com/spf13/viper"
+import (
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+)
 
 func InitConfiguration() (*AppConfig, error) {
+	log.Info().Msg("Starting to load configuration")
 	var config AppConfig
 	viper.AddConfigPath("configuration")
 	viper.SetConfigType("yaml")
@@ -13,5 +17,6 @@ func InitConfiguration() (*AppConfig, error) {
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
 	}
+	log.Info().Msg("Finish to load configuration")
 	return &config, nil
 }
