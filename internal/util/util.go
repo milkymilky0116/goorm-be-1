@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/milkymilky0116/goorm-be-1/internal/api/middleware"
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ErrBody struct {
@@ -24,6 +25,21 @@ func GetRequestID(w http.ResponseWriter, r *http.Request) *string {
 		return nil
 	}
 	return &requestID
+}
+
+func HandleErrAndLog(w http.ResponseWriter, span trace.Span, err error, requestID, spanID string, statusCode int, message string) {
+	span.RecordError(err)
+	log.Err(err).Str(middleware.REQUEST_ID, requestID).Str("span_id", spanID).Msg(message)
+	HandleError(w, err, http.StatusInternalServerError)
+}
+
+func LogError(span trace.Span, err error, requestID, spanID string, message string) {
+	span.RecordError(err)
+	log.Err(err).Str(middleware.REQUEST_ID, requestID).Str("span_id", spanID).Msg(message)
+}
+
+func LogInfo(span trace.Span, requestID, spanID string, message string) {
+	log.Info().Str(middleware.REQUEST_ID, requestID).Str("span_id", spanID).Msg(message)
 }
 
 func ReadBody(r *http.Request, data any) error {

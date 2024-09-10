@@ -6,10 +6,13 @@ import (
 	"github.com/milkymilky0116/goorm-be-1/internal/api/middleware"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	"github.com/milkymilky0116/goorm-be-1/internal/util"
-	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/go-playground/validator/v10"
 )
+
+var tracer = otel.Tracer("SignUp")
 
 type AuthController struct {
 	authService *AuthService
@@ -17,36 +20,36 @@ type AuthController struct {
 }
 
 func (app *AuthController) SignupController(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "SignUp")
+	defer span.End()
 	requestID := util.GetRequestID(w, r)
+	spanID := span.SpanContext().SpanID().String()
 
-	log.Info().Str(middleware.REQUEST_ID, *requestID).Msg("Starting registering user")
+	span.SetAttributes(attribute.String(middleware.REQUEST_ID, *requestID))
+	util.LogInfo(span, *requestID, spanID, "Starting register user")
 	var dto CreateUserDTO
 	err := util.ReadBody(r, &dto)
 	if err != nil {
-		log.Err(err).Msg("Fail to read body")
-		util.HandleError(w, err, http.StatusInternalServerError)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to read body")
 		return
 	}
 	err = app.validate.Struct(dto)
 	if err != nil {
-		log.Err(err).Msg("Fail to validate body")
-		util.HandleValidatorError(w, err, http.StatusBadRequest)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to validate body")
 		return
 	}
-	user, err := app.authService.CreateUser(*requestID, dto)
+	user, err := app.authService.CreateUser(ctx, *requestID, dto)
 	if err != nil {
-		log.Err(err).Msg("Fail to save user")
-		util.HandleError(w, err, http.StatusInternalServerError)
-		return
-	}
-	err = util.WriteJson(w, user, http.StatusOK)
-	if err != nil {
-		log.Err(err).Msg("Fail to write json")
-		util.HandleError(w, err, http.StatusInternalServerError)
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to create user")
 		return
 	}
 
-	log.Info().Str(middleware.REQUEST_ID, *requestID).Msg("Finish registering user")
+	err = util.WriteJson(w, user, http.StatusOK)
+	if err != nil {
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to write json")
+		return
+	}
+	util.LogInfo(span, *requestID, spanID, "Finish registering user")
 }
 
 func InitAuthController(repo *repository.Queries, validate *validator.Validate) *AuthController {
