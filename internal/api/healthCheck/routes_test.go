@@ -16,7 +16,6 @@ func TestHealthCheck(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app := testutil.StartTestServer(t, ctx, &wg)
-	wg.Wait()
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/health_check", app.Listener.Addr()), nil)
@@ -24,9 +23,9 @@ func TestHealthCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp, err := client.Do(req)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code 200")
+	defer wg.Done()
 }

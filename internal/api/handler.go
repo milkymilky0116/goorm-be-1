@@ -9,7 +9,7 @@ import (
 
 func (app *Application) routes() *http.ServeMux {
 	healthCheckController := healthcheck.InitHealthCheckController()
-	authController := auth.InitAuthController(app.Repository)
+	authController := auth.InitAuthController(app.Repository, app.Validator)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health_check", healthCheckController.HealthCheck)
 	mux.HandleFunc("POST /auth/signup", authController.SignupController)

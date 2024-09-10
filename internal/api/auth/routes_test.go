@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/milkymilky0116/goorm-be-1/internal/api/auth"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	testutil "github.com/milkymilky0116/goorm-be-1/internal/testUtil"
 	"github.com/stretchr/testify/assert"
@@ -21,13 +22,12 @@ func TestAuthController(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		app := testutil.StartTestServer(t, ctx, &wg)
-		wg.Wait()
 
 		client := &http.Client{}
-		body := repository.CreateUserParams{
+		body := auth.CreateUserDTO{
 			Email:    "test@naver.com",
-			Password: "123",
-			Role:     repository.RoleStudent,
+			Password: "Abcd1234!",
+			Role:     "student",
 		}
 
 		jsonBody, err := json.Marshal(body)
@@ -62,7 +62,7 @@ func TestAuthController(t *testing.T) {
 		}
 
 		assert.Equal(t, "test@naver.com", result.Email)
-		assert.NotEqual(t, "123", result.Password)
+		assert.NotEqual(t, "Abcd1234!", result.Password)
 		assert.Equal(t, repository.RoleStudent, result.Role)
 
 		user, err := app.Repo.GetUser(context.Background(), result.ID)
@@ -70,7 +70,85 @@ func TestAuthController(t *testing.T) {
 			t.Errorf("Fail to get user : %v", err)
 		}
 		assert.Equal(t, "test@naver.com", user.Email)
-		assert.NotEqual(t, "123", user.Password)
+		assert.NotEqual(t, "Abcd1234!", user.Password)
 		assert.Equal(t, repository.RoleStudent, user.Role)
+		defer wg.Done()
+	})
+	t.Run("signup should return 500 when invalid input was given", func(t *testing.T) {
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := testutil.StartTestServer(t, ctx, &wg)
+
+		client := &http.Client{}
+		testcases := []struct {
+			name string
+			body map[string]string
+		}{
+			{
+				name: "email field is not valid",
+				body: map[string]string{
+					"email":    "test",
+					"password": "123",
+					"role":     "student",
+				},
+			},
+			{
+				name: "role field is not valid",
+				body: map[string]string{
+					"email":    "test@naver.com",
+					"password": "123",
+					"role":     "test",
+				},
+			},
+			{
+				name: "email field is missing",
+				body: map[string]string{
+					"password": "123",
+					"role":     "test",
+				},
+			},
+			{
+				name: "password field is missing",
+				body: map[string]string{
+					"email": "test@naver.com",
+					"role":  "test",
+				},
+			},
+			{
+				name: "role field is missing",
+				body: map[string]string{
+					"email":    "test@naver.com",
+					"password": "123",
+				},
+			},
+			{
+				name: "password field is invalid",
+				body: map[string]string{
+					"email":    "test@naver.com",
+					"password": "123",
+					"role":     "student",
+				},
+			},
+		}
+		for _, tt := range testcases {
+			t.Run(tt.name, func(t *testing.T) {
+				jsonBody, err := json.Marshal(tt.body)
+				if err != nil {
+					t.Fatalf("Fail to parse json: %v", err)
+				}
+				req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signup", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+				if err != nil {
+					t.Fatalf("Fail to create request url: %v", err)
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatalf("Fail to request url: %v", err)
+				}
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			})
+		}
+
+		defer wg.Done()
 	})
 }

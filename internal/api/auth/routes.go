@@ -2,65 +2,59 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
+	"github.com/milkymilky0116/goorm-be-1/internal/util"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/go-playground/validator/v10"
 )
 
 type AuthController struct {
-	repo *repository.Queries
+	repo      *repository.Queries
+	validator *validator.Validate
 }
 
 func (app *AuthController) SignupController(w http.ResponseWriter, r *http.Request) {
-	var dto repository.CreateUserParams
-	defer r.Body.Close()
-	body, err := io.ReadAll(r.Body)
+	var dto CreateUserDTO
+	err := util.ReadBody(r, &dto)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		util.HandleError(w, err, http.StatusInternalServerError)
 		return
 	}
-	err = json.Unmarshal(body, &dto)
+	err = app.validator.Struct(dto)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		util.HandleValidatorError(w, err, http.StatusBadRequest)
 		return
 	}
-	log.Println(dto)
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		util.HandleError(w, err, http.StatusInternalServerError)
 		return
 	}
+
 	dto.Password = string(hashedPassword)
 	user, err := app.repo.CreateUser(context.Background(), repository.CreateUserParams{
 		Email:    dto.Email,
 		Password: dto.Password,
-		Role:     dto.Role,
+		Role:     repository.Role(dto.Role),
 	})
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		util.HandleError(w, err, http.StatusInternalServerError)
 		return
 	}
-	jsonBody, err := json.Marshal(user)
+	err = util.WriteJson(w, user, http.StatusOK)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		util.HandleError(w, err, http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonBody)
 }
 
-func InitAuthController(repo *repository.Queries) *AuthController {
+func InitAuthController(repo *repository.Queries, validate *validator.Validate) *AuthController {
 	return &AuthController{
-		repo: repo,
+		repo:      repo,
+		validator: validate,
 	}
 }
