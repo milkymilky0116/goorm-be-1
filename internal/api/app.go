@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,9 +20,11 @@ type Application struct {
 	DB         *pgxpool.Pool
 	Repository *repository.Queries
 	Validator  *validator.Validate
+	PrivateKey ed25519.PrivateKey
+	PublicKey  ed25519.PublicKey
 }
 
-func Run(ctx context.Context, listener net.Listener, db *pgxpool.Pool) (*Application, error) {
+func Run(ctx context.Context, listener net.Listener, db *pgxpool.Pool, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) (*Application, error) {
 	var app Application
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterValidation("password", customvalidator.PasswordValidator)
@@ -32,6 +35,8 @@ func Run(ctx context.Context, listener net.Listener, db *pgxpool.Pool) (*Applica
 	app.DB = db
 	app.Repository = queries
 	app.Validator = validate
+	app.PublicKey = publicKey
+	app.PrivateKey = privateKey
 
 	srv := &http.Server{
 		Handler: app.routes(),

@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/milkymilky0116/goorm-be-1/internal/api"
+	"github.com/milkymilky0116/goorm-be-1/internal/api/jwt"
 	"github.com/milkymilky0116/goorm-be-1/internal/configuration"
 	"github.com/milkymilky0116/goorm-be-1/internal/db"
 	"github.com/milkymilky0116/goorm-be-1/internal/tracing"
@@ -42,7 +43,11 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Fail to bind address")
 	}
-	_, err = api.Run(ctx, listener, conn)
+	publicKey, privateKey, err := jwt.InitKey()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Fail to generate public/private key")
+	}
+	_, err = api.Run(ctx, listener, conn, publicKey, privateKey)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Fail to launch app")
 	}

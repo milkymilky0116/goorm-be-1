@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/milkymilky0116/goorm-be-1/internal/api/auth"
+	"github.com/milkymilky0116/goorm-be-1/internal/api/jwt"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	testutil "github.com/milkymilky0116/goorm-be-1/internal/testUtil"
 	"github.com/stretchr/testify/assert"
@@ -65,7 +66,7 @@ func TestAuthController(t *testing.T) {
 		assert.NotEqual(t, "Abcd1234!", result.Password)
 		assert.Equal(t, repository.RoleStudent, result.Role)
 
-		user, err := app.Repo.GetUser(context.Background(), result.ID)
+		user, err := app.Repo.GetUser(context.Background(), result.Email)
 		if err != nil {
 			t.Errorf("Fail to get user : %v", err)
 		}
@@ -74,6 +75,7 @@ func TestAuthController(t *testing.T) {
 		assert.Equal(t, repository.RoleStudent, user.Role)
 		defer wg.Done()
 	})
+
 	t.Run("signup should return 500 when invalid input was given", func(t *testing.T) {
 		var wg sync.WaitGroup
 		ctx, cancel := context.WithCancel(context.Background())
@@ -149,6 +151,73 @@ func TestAuthController(t *testing.T) {
 			})
 		}
 
+		defer wg.Done()
+	})
+
+	t.Run("signin should return 200 when valid input was given", func(t *testing.T) {
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := testutil.StartTestServer(t, ctx, &wg)
+
+		client := &http.Client{}
+		createUserBody := auth.CreateUserDTO{
+			Email:    "test@naver.com",
+			Password: "Abcd1234!",
+			Role:     "student",
+		}
+
+		jsonBody, err := json.Marshal(createUserBody)
+		if err != nil {
+			t.Fatalf("Fail to marshal json body : %+v", err)
+		}
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signup", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		_, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+
+		signinUserBody := map[string]string{
+			"Email":    "test@naver.com",
+			"Password": "Abcd1234!",
+		}
+
+		jsonBody, err = json.Marshal(signinUserBody)
+		if err != nil {
+			t.Fatalf("Fail to marshal json body : %+v", err)
+		}
+		req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signin", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var result auth.SigninResultDTO
+		defer resp.Body.Close()
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("Fail to read body: %+v", err)
+		}
+		err = json.Unmarshal(respBody, &result)
+		if err != nil {
+			t.Fatalf("Fail to parse json: %+v", err)
+		}
+		jwtService := jwt.InitJWTService(app.PublicKey, app.PrivateKey)
+		accessToken, err := jwtService.Verify(result.AccessToken)
+		if err != nil {
+			t.Fatalf("Fail to verify access token: %+v", err)
+		}
+		accessTokenID := accessToken.Get("id")
+		assert.Equal(t, "1", accessTokenID)
 		defer wg.Done()
 	})
 }

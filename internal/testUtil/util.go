@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"crypto/ed25519"
 	"database/sql"
 	"errors"
 	"net"
@@ -13,14 +14,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 	"github.com/milkymilky0116/goorm-be-1/internal/api"
+	"github.com/milkymilky0116/goorm-be-1/internal/api/jwt"
 	"github.com/milkymilky0116/goorm-be-1/internal/configuration"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
+	"github.com/milkymilky0116/goorm-be-1/internal/tracing"
 	"github.com/pressly/goose/v3"
 )
 
 type TestApp struct {
-	Repo     *repository.Queries
-	Listener net.Listener
+	Repo       *repository.Queries
+	Listener   net.Listener
+	PublicKey  ed25519.PublicKey
+	PrivateKey ed25519.PrivateKey
 }
 
 const MIGRATION_DIR = "migration"
@@ -68,13 +73,13 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 		t.Fatalf("Fail to load configuration: %v", err)
 	}
 
-	// tracingProvider, err := tracing.InitTracing("goorm-class-test")
-	// defer func() {
-	// 	if err := tracingProvider.Shutdown(context.Background()); err != nil {
-	// 		t.Fatalf("Fail to shutting down tracing provider")
-	// 	}
-	// }()
-	// tracingProvider.Tracer("goorm-class-test")
+	tracingProvider, err := tracing.InitTracing("goorm-class-test")
+	defer func() {
+		if err := tracingProvider.Shutdown(context.Background()); err != nil {
+			t.Fatalf("Fail to shutting down tracing provider")
+		}
+	}()
+	tracingProvider.Tracer("goorm-class-test")
 
 	if err != nil {
 		t.Fatalf("Fail to set tracing provider")
@@ -97,17 +102,23 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	publicKey, privateKey, err := jwt.InitKey()
+	if err != nil {
+		t.Fatal(err)
+	}
 	wg.Add(1)
 	go func() {
-		_, err := api.Run(ctx, listener, conn)
+		var err error
+		_, err = api.Run(ctx, listener, conn, publicKey, privateKey)
 		if err != nil {
 			t.Errorf("Fail to run server: %+v", err)
 			return
 		}
 	}()
 	return TestApp{
-		Repo:     repo,
-		Listener: listener,
+		Repo:       repo,
+		Listener:   listener,
+		PublicKey:  publicKey,
+		PrivateKey: privateKey,
 	}
 }
