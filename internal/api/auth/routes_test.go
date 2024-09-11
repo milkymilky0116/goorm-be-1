@@ -70,7 +70,7 @@ func TestAuthController(t *testing.T) {
 			t.Errorf("Fail to get user : %v", err)
 		}
 		assert.Equal(t, "test@naver.com", user.Email)
-		assert.NotEqual(t, "Abcd1234!", user.Password)
+		assert.NotEqual(t, "Abcd123!", user.Password)
 		assert.Equal(t, repository.RoleStudent, user.Role)
 		defer wg.Done()
 	})

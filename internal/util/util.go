@@ -30,7 +30,7 @@ func GetRequestID(w http.ResponseWriter, r *http.Request) *string {
 func HandleErrAndLog(w http.ResponseWriter, span trace.Span, err error, requestID, spanID string, statusCode int, message string) {
 	span.RecordError(err)
 	log.Err(err).Str(middleware.REQUEST_ID, requestID).Str("span_id", spanID).Msg(message)
-	HandleError(w, err, http.StatusInternalServerError)
+	HandleError(w, err, statusCode)
 }
 
 func LogError(span trace.Span, err error, requestID, spanID string, message string) {

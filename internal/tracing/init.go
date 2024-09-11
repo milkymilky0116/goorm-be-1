@@ -12,7 +12,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func InitTracing() (*trace.TracerProvider, error) {
+func InitTracing(key string) (*trace.TracerProvider, error) {
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
@@ -34,7 +34,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 		trace.WithResource(
 			resource.NewWithAttributes(
 				semconv.SchemaURL,
-				semconv.ServiceNameKey.String("goorm-class"),
+				semconv.ServiceNameKey.String(key),
 			),
 		),
 	)

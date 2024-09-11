@@ -35,7 +35,7 @@ func (app *AuthController) SignupController(w http.ResponseWriter, r *http.Reque
 	}
 	err = app.validate.Struct(dto)
 	if err != nil {
-		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to validate body")
+		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusBadRequest, "Fail to validate body")
 		return
 	}
 	user, err := app.authService.CreateUser(ctx, *requestID, dto)

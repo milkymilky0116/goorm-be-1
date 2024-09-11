@@ -60,24 +60,37 @@ func SetRootDirectory() error {
 func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) TestApp {
 	err := SetRootDirectory()
 	if err != nil {
-		t.Errorf("Fail to set root directory: %v", err)
+		t.Fatalf("Fail to set root directory: %v", err)
 	}
 
 	config, err := configuration.InitConfiguration()
 	if err != nil {
-		t.Errorf("Fail to load configuration: %v", err)
+		t.Fatalf("Fail to load configuration: %v", err)
 	}
+
+	// tracingProvider, err := tracing.InitTracing("goorm-class-test")
+	// defer func() {
+	// 	if err := tracingProvider.Shutdown(context.Background()); err != nil {
+	// 		t.Fatalf("Fail to shutting down tracing provider")
+	// 	}
+	// }()
+	// tracingProvider.Tracer("goorm-class-test")
+
+	if err != nil {
+		t.Fatalf("Fail to set tracing provider")
+	}
+
 	connectionString, err := LaunchPostgresContainer(&config.Database)
 	if err != nil {
-		t.Errorf("Fail to launch database container: %v", err)
+		t.Fatalf("Fail to launch database container: %v", err)
 	}
 	conn, err := pgxpool.New(context.Background(), *connectionString)
 	if err != nil {
-		t.Errorf("Fail to connect to db: %v", err)
+		t.Fatalf("Fail to connect to db: %v", err)
 	}
 	err = MigrateDB(*connectionString)
 	if err != nil {
-		t.Errorf("Fail to migrate db: %v", err)
+		t.Fatalf("Fail to migrate db: %v", err)
 	}
 	repo := repository.New(conn)
 	listener, err := net.Listen("tcp", "[::1]:0")
