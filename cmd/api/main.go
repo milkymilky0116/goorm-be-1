@@ -20,7 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Fail to read configuration")
 	}
-	tracingProvider, err := tracing.InitTracing()
+	tracingProvider, err := tracing.InitTracing("goorm-class")
 	defer func() {
 		if err := tracingProvider.Shutdown(context.Background()); err != nil {
 			log.Fatal().Err(err).Msg("Fail to shutdown tracer")
