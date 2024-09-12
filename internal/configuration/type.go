@@ -5,6 +5,7 @@ import "fmt"
 type AppConfig struct {
 	ApplicationPort int            `yaml:"applicationPort"`
 	Database        DatabaseConfig `yaml:"database"`
+	Jaeger          JaegerConfig   `yaml:"jaeger"`
 }
 
 type DatabaseConfig struct {
@@ -13,6 +14,11 @@ type DatabaseConfig struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	DbName   string `yaml:"dbName"`
+}
+
+type JaegerConfig struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
 }
 
 func (d DatabaseConfig) GetDatabaseURL() string {

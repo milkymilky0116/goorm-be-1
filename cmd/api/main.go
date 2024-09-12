@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Fail to read configuration")
 	}
-	tracingProvider, err := tracing.InitTracing("goorm-class")
+	tracingProvider, err := tracing.InitTracing("goorm-class", config.Jaeger.Host, config.Jaeger.Port)
 	defer func() {
 		if err := tracingProvider.Shutdown(context.Background()); err != nil {
 			log.Fatal().Err(err).Msg("Fail to shutdown tracer")
@@ -39,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer conn.Close()
-	listener, err := net.Listen("tcp", fmt.Sprintf("[::1]:%d", config.ApplicationPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", config.ApplicationPort))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Fail to bind address")
 	}

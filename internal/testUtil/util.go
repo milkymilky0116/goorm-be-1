@@ -60,7 +60,7 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 		t.Fatalf("Fail to load configuration: %v", err)
 	}
 
-	tracingProvider, err := tracing.InitTracing("goorm-class-test")
+	tracingProvider, err := tracing.InitTracing("goorm-class-test", config.Jaeger.Host, config.Jaeger.Port)
 	defer func() {
 		if err := tracingProvider.Shutdown(context.Background()); err != nil {
 			t.Fatalf("Fail to shutting down tracing provider")

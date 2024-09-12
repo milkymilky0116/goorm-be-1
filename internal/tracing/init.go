@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -12,12 +13,12 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-func InitTracing(key string) (*trace.TracerProvider, error) {
+func InitTracing(key, host string, port int) (*trace.TracerProvider, error) {
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 	exporter, err := otlptrace.New(context.Background(), otlptracehttp.NewClient(
-		otlptracehttp.WithEndpoint("localhost:4318"),
+		otlptracehttp.WithEndpoint(fmt.Sprintf("%s:%d", host, port)),
 		otlptracehttp.WithHeaders(headers),
 		otlptracehttp.WithInsecure(),
 	))
