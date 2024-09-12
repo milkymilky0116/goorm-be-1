@@ -1,6 +1,7 @@
 package util
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,11 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/milkymilky0116/goorm-be-1/internal/api/middleware"
+	"github.com/pressly/goose"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel/trace"
+
+	_ "github.com/lib/pq"
 )
 
 type ErrBody struct {
@@ -79,4 +83,16 @@ func HandleValidatorError(w http.ResponseWriter, err error, statusCode int) {
 		msg += errMsg
 	}
 	WriteJson(w, &ErrBody{Msg: msg}, statusCode)
+}
+
+func MigrateDB(connectionString string) error {
+	db, err := sql.Open("postgres", connectionString)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := goose.Up(db, "migration"); err != nil {
+		return err
+	}
+	return nil
 }
