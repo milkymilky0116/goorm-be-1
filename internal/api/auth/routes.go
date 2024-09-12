@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/ed25519"
+	"errors"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -78,7 +79,13 @@ func (app *AuthController) SigninController(w http.ResponseWriter, r *http.Reque
 
 	tokens, err := app.authService.Signin(ctx, *requestID, dto)
 	if err != nil {
-		util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusBadRequest, "Fail to Signin")
+		if errors.Is(err, ErrUserNotFound) {
+			util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusNotFound, "Fail to Signin")
+		} else if errors.Is(err, ErrInvalidPassword) {
+			util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusUnauthorized, "Fail to Signin")
+		} else {
+			util.HandleErrAndLog(w, span, err, *requestID, spanID, http.StatusInternalServerError, "Fail to Signin")
+		}
 		return
 	}
 

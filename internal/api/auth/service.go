@@ -3,8 +3,12 @@ package auth
 import (
 	"context"
 	"crypto/ed25519"
+	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/milkymilky0116/goorm-be-1/internal/api/jwt"
 	"github.com/milkymilky0116/goorm-be-1/internal/api/middleware"
@@ -61,23 +65,39 @@ func (a *AuthService) Signin(ctx context.Context, requestID string, dto SigninDT
 	qtx := a.repo.WithTx(tx)
 	user, err := qtx.GetUser(ctx, dto.Email)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			util.LogError(span, err, requestID, spanID, "Fail to find user by email")
+			return nil, ErrUserNotFound
+		}
 		util.LogError(span, err, requestID, spanID, "Fail to find user by email")
 		return nil, err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(dto.Password))
 	if err != nil {
 		util.LogError(span, err, requestID, spanID, "Password is incorrect")
-		return nil, err
+		return nil, ErrInvalidPassword
 	}
 	accessToken, err := a.jwtService.GetToken("id", fmt.Sprintf("%d", user.ID), jwt.ACCESSTOKEN_EXPIRATION_TIME)
 	if err != nil {
 		util.LogError(span, err, requestID, spanID, "Fail to generate AccessToken")
-		return nil, err
+		return nil, ErrGenerateTokenFail
 	}
 
 	refreshToken, err := a.jwtService.GetToken("id", fmt.Sprintf("%d", user.ID), jwt.REFRESHTOKEN_EXPIRATION_TIME)
 	if err != nil {
 		util.LogError(span, err, requestID, spanID, "Fail to generate RefreshToken")
+		return nil, ErrGenerateTokenFail
+	}
+	_, err = a.repo.CreateRefreshToken(ctx, repository.CreateRefreshTokenParams{
+		UserID:       &user.ID,
+		RefreshToken: *refreshToken,
+		ExpiresAt: pgtype.Timestamptz{
+			Time:  time.Now().Add(jwt.REFRESHTOKEN_EXPIRATION_TIME),
+			Valid: true,
+		},
+	})
+	if err != nil {
+		util.LogError(span, err, requestID, spanID, "Fail to save refresh token on db")
 		return nil, err
 	}
 

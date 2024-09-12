@@ -53,6 +53,15 @@ func (ns NullRole) Value() (driver.Value, error) {
 	return string(ns.Role), nil
 }
 
+type RefreshToken struct {
+	ID           int64              `db:"id" json:"id"`
+	RefreshToken string             `db:"refresh_token" json:"refresh_token"`
+	UserID       *int64             `db:"user_id" json:"user_id"`
+	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type User struct {
 	ID        int64              `db:"id" json:"id"`
 	Email     string             `db:"email" json:"email"`

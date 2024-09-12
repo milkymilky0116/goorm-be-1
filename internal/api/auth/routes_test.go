@@ -181,9 +181,9 @@ func TestAuthController(t *testing.T) {
 			t.Fatalf("Fail to request url: %+v", err)
 		}
 
-		signinUserBody := map[string]string{
-			"Email":    "test@naver.com",
-			"Password": "Abcd1234!",
+		signinUserBody := auth.SigninDTO{
+			Email:    "test@naver.com",
+			Password: "Abcd1234!",
 		}
 
 		jsonBody, err = json.Marshal(signinUserBody)
@@ -218,6 +218,203 @@ func TestAuthController(t *testing.T) {
 		}
 		accessTokenID := accessToken.Get("id")
 		assert.Equal(t, "1", accessTokenID)
+
+		refreshToken, err := jwtService.Verify(result.RefreshToken)
+		if err != nil {
+			t.Fatalf("Fail to verify refresh token: %+v", err)
+		}
+		refreshTokenID := refreshToken.Get("id")
+		assert.Equal(t, "1", refreshTokenID)
+
+		token, err := app.Repo.GetTokenById(context.Background(), 1)
+		if err != nil {
+			t.Fatalf("Fail to get refresh token from db: %+v", err)
+		}
+		assert.Equal(t, token.RefreshToken, result.RefreshToken)
+		defer wg.Done()
+	})
+
+	t.Run("signin should return 400 when invalid input was given", func(t *testing.T) {
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := testutil.StartTestServer(t, ctx, &wg)
+
+		client := &http.Client{}
+		createUserBody := auth.CreateUserDTO{
+			Email:    "test@naver.com",
+			Password: "Abcd1234!",
+			Role:     "student",
+		}
+		jsonBody, err := json.Marshal(createUserBody)
+		if err != nil {
+			t.Fatalf("Fail to marshal json body : %+v", err)
+		}
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signup", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		_, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+
+		testCases := []struct {
+			name string
+			body auth.SigninDTO
+		}{
+			{
+				name: "email is not valid",
+				body: auth.SigninDTO{
+					Email:    "test",
+					Password: "Abcd1234!",
+				},
+			},
+			{
+				name: "password is not valid",
+				body: auth.SigninDTO{
+					Email:    "test@naver.com",
+					Password: "test",
+				},
+			},
+		}
+		for _, tt := range testCases {
+			t.Run(tt.name, func(t *testing.T) {
+				jsonBody, err = json.Marshal(tt.body)
+				if err != nil {
+					t.Fatalf("Fail to marshal json body : %+v", err)
+				}
+				req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signin", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			})
+		}
+		defer wg.Done()
+	})
+
+	t.Run("signin should return 404 when user not found", func(t *testing.T) {
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := testutil.StartTestServer(t, ctx, &wg)
+
+		client := &http.Client{}
+		createUserBody := auth.CreateUserDTO{
+			Email:    "test@naver.com",
+			Password: "Abcd1234!",
+			Role:     "student",
+		}
+		jsonBody, err := json.Marshal(createUserBody)
+		if err != nil {
+			t.Fatalf("Fail to marshal json body : %+v", err)
+		}
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signup", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		_, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+
+		testCases := []struct {
+			name string
+			body auth.SigninDTO
+		}{
+			{
+				name: "email is not exists on db",
+				body: auth.SigninDTO{
+					Email:    "123@naver.com",
+					Password: "Abcd1234!",
+				},
+			},
+		}
+		for _, tt := range testCases {
+			t.Run(tt.name, func(t *testing.T) {
+				jsonBody, err = json.Marshal(tt.body)
+				if err != nil {
+					t.Fatalf("Fail to marshal json body : %+v", err)
+				}
+				req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signin", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+			})
+		}
+		defer wg.Done()
+	})
+
+	t.Run("signin should return 401 when password is incorrect", func(t *testing.T) {
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := testutil.StartTestServer(t, ctx, &wg)
+
+		client := &http.Client{}
+		createUserBody := auth.CreateUserDTO{
+			Email:    "test@naver.com",
+			Password: "Abcd1234!",
+			Role:     "student",
+		}
+		jsonBody, err := json.Marshal(createUserBody)
+		if err != nil {
+			t.Fatalf("Fail to marshal json body : %+v", err)
+		}
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signup", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		_, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Fail to request url: %+v", err)
+		}
+
+		testCases := []struct {
+			name string
+			body auth.SigninDTO
+		}{
+			{
+				name: "password is incorrect",
+				body: auth.SigninDTO{
+					Email:    "test@naver.com",
+					Password: "Abcd1234@@@@",
+				},
+			},
+		}
+		for _, tt := range testCases {
+			t.Run(tt.name, func(t *testing.T) {
+				jsonBody, err = json.Marshal(tt.body)
+				if err != nil {
+					t.Fatalf("Fail to marshal json body : %+v", err)
+				}
+				req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/auth/signin", app.Listener.Addr()), bytes.NewBuffer(jsonBody))
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatalf("Fail to request url: %+v", err)
+				}
+				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			})
+		}
 		defer wg.Done()
 	})
 }
