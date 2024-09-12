@@ -3,7 +3,6 @@ package testutil
 import (
 	"context"
 	"crypto/ed25519"
-	"database/sql"
 	"errors"
 	"net"
 	"os"
@@ -18,7 +17,7 @@ import (
 	"github.com/milkymilky0116/goorm-be-1/internal/configuration"
 	"github.com/milkymilky0116/goorm-be-1/internal/db/repository"
 	"github.com/milkymilky0116/goorm-be-1/internal/tracing"
-	"github.com/pressly/goose/v3"
+	"github.com/milkymilky0116/goorm-be-1/internal/util"
 )
 
 type TestApp struct {
@@ -29,18 +28,6 @@ type TestApp struct {
 }
 
 const MIGRATION_DIR = "migration"
-
-func MigrateDB(connectionString string) error {
-	db, err := sql.Open("postgres", connectionString+"sslmode=disable")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	if err := goose.Up(db, "migration"); err != nil {
-		return err
-	}
-	return nil
-}
 
 func SetRootDirectory() error {
 	wd, err := os.Getwd()
@@ -73,7 +60,7 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 		t.Fatalf("Fail to load configuration: %v", err)
 	}
 
-	tracingProvider, err := tracing.InitTracing("goorm-class-test")
+	tracingProvider, err := tracing.InitTracing("goorm-class-test", config.Jaeger.Host, config.Jaeger.Port)
 	defer func() {
 		if err := tracingProvider.Shutdown(context.Background()); err != nil {
 			t.Fatalf("Fail to shutting down tracing provider")
@@ -93,7 +80,7 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 	if err != nil {
 		t.Fatalf("Fail to connect to db: %v", err)
 	}
-	err = MigrateDB(*connectionString)
+	err = util.MigrateDB(*connectionString)
 	if err != nil {
 		t.Fatalf("Fail to migrate db: %v", err)
 	}

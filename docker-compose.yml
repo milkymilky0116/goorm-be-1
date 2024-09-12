@@ -1,9 +1,13 @@
-version: '3.1'
-
 services:
   db:
     image: postgres:latest
-    container_name: goorm-class
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    container_name: goorm-class-db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -20,5 +24,18 @@ services:
       - 4318:4318
     environment:
       COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+  goorm-class:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configuration:/app/configuration
+    command: ["./goorm-class"]
+    restart: unless-stopped
+    depends_on:
+      - db
+
 volumes:
   db_data:
