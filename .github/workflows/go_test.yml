@@ -5,6 +5,8 @@ on:
     branches: [dev, chore/13/gotestWorkflow]
   pull_request:
     branches: [dev, chore/13/gotestWorkflow]
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -18,7 +20,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "^1.22"
-
       - name: install dependencies
         run: go mod download
 

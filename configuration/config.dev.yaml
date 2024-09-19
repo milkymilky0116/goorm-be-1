@@ -1,0 +1,10 @@
+applicationPort: 8080
+database:
+  username: admin
+  password: 123
+  host: 127.0.0.1 
+  port: 5432
+  dbName: goorm-class
+jaeger:
+  host: 127.0.0.1
+  port: 4318
