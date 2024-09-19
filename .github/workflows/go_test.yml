@@ -11,7 +11,12 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    services:
+      jaeger:
+        image: jaegertracing/all-in-one:latest
+        ports:
+          - 4318:4318 # Jaeger 에이전트 포트
+          - 16686:16686 # Jaeger UI 포트
     steps:
       - name: checkout code
         uses: actions/checkout@v3
@@ -20,11 +25,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "^1.22"
-      - name: running docker compose
-        run: |
-          docker compose up -d
       - name: install dependencies
         run: go mod download
-
       - name: running test
         run: go test -v ./...
