@@ -76,6 +76,7 @@ func StartTestServer(t *testing.T, ctx context.Context, wg *sync.WaitGroup) Test
 	if err != nil {
 		t.Fatalf("Fail to launch database container: %v", err)
 	}
+	*connectionString += "sslmode=disable"
 	conn, err := pgxpool.New(context.Background(), *connectionString)
 	if err != nil {
 		t.Fatalf("Fail to connect to db: %v", err)
